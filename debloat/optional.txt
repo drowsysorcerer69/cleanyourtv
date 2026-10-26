@@ -1,0 +1,14 @@
+# Optional removals - read each line first. Reversible: `tvctl restore-all`.
+
+com.mitv.tvhome.michannel        # Mi "channels" / recommendation content shown in PatchWall
+com.google.android.tvrecommendations  # Google recommendation rows (only useful with the stock launcher)
+com.google.android.backdrop      # Ambient/Backdrop screensaver (Google photos/art)
+com.mitv.milinkservice           # Mi Link (casting from Mi phones)
+com.xm.webcontent                # Xiaomi web content provider
+
+# Disabling OTA means no more system updates and no more Xiaomi-pushed content. Uncomment if you want that.
+#com.xiaomi.mitv.updateservice
+
+# Streaming apps you may or may not use - uncomment to remove.
+#com.netflix.ninja
+#com.amazon.amazonvideo.livingroom

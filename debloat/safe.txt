@@ -1,0 +1,10 @@
+# Mi Box 4 (Android TV 9) - safe removals. Reversible: `tvctl restore-all`.
+# Removed for user 0 only; the apps stay in /system and come back after a factory reset.
+
+com.miui.tv.analytics            # Xiaomi usage analytics
+tv.alphonso.alphonso_eula        # Alphonso ACR (watch-tracking for ad targeting)
+com.google.android.feedback      # Google feedback agent
+com.google.android.tv.bugreportsender
+com.google.android.play.games    # Play Games
+com.google.android.videos        # Play Movies & TV
+com.google.android.youtube.tvmusic  # YouTube Music

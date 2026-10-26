@@ -1,0 +1,5 @@
+# ONLY run after the CleanYourTV launcher is installed and set as Home (`tvctl install app.apk`).
+# If no Home app is left, the Home button does nothing and you have to restore over adb.
+
+com.mitv.tvhome.atv              # Xiaomi PatchWall home (ads, recommendations)
+com.google.android.tvlauncher    # Google TV launcher
