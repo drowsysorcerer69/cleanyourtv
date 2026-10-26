@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -33,14 +34,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.zIndex
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
@@ -49,6 +54,11 @@ import java.util.Locale
 
 private val BgTop = Color(0xFF161A24)
 private val BgBottom = Color(0xFF050608)
+
+// Card sizes on the fixed 1280x720dp canvas.
+private val BannerW = 256.dp
+private val BannerH = 144.dp
+private val IconSize = 96.dp
 
 @Composable
 fun HomeScreen(
@@ -59,6 +69,22 @@ fun HomeScreen(
 ) {
     BackHandler(enabled = true) { /* a launcher has nowhere to go back to */ }
 
+    // TVs report wildly different densities. Lay everything out on a fixed 1280x720dp canvas
+    // so it looks the same on every screen (1920px wide => density 1.5).
+    val metrics = LocalContext.current.resources.displayMetrics
+    val canvas = remember(metrics.widthPixels) { Density(metrics.widthPixels / 1280f, 1f) }
+    CompositionLocalProvider(LocalDensity provides canvas) {
+        HomeContent(state, onLaunch, onTogglePin, onOpenSettings)
+    }
+}
+
+@Composable
+private fun HomeContent(
+    state: HomeState,
+    onLaunch: (AppEntry) -> Unit,
+    onTogglePin: (AppEntry) -> Unit,
+    onOpenSettings: () -> Unit,
+) {
     var focused by remember { mutableStateOf<AppEntry?>(null) }
     // Dynamic backdrop: glow follows the average colour of whichever app is focused.
     val glow by animateColorAsState(focused?.accent ?: Color(0xFF3A4A7A), tween(500), label = "glow")
@@ -70,22 +96,27 @@ fun HomeScreen(
             .background(
                 Brush.radialGradient(
                     colors = listOf(glow.copy(alpha = 0.35f), Color.Transparent),
-                    center = androidx.compose.ui.geometry.Offset(1400f, 200f),
+                    center = Offset(1400f, 200f),
                     radius = 1200f,
                 )
             )
     ) {
-        Column(Modifier.fillMaxSize().padding(horizontal = 56.dp, vertical = 36.dp)) {
+        // Generous side/top padding keeps content inside the TV's overscan area.
+        Column(Modifier.fillMaxSize().padding(start = 64.dp, end = 64.dp, top = 40.dp, bottom = 24.dp)) {
             TopBar()
             Hero(focused)
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyColumn(
+                Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                contentPadding = PaddingValues(bottom = 24.dp),
+            ) {
                 if (state.pinned.isNotEmpty()) {
-                    item { Shelf("Favorites", state.pinned, 300.dp, 169.dp, true, { focused = it }, onLaunch, onTogglePin) }
+                    item { Shelf("Favorites", state.pinned, BannerW, BannerH, true, { focused = it }, onLaunch, onTogglePin) }
                 }
                 if (state.recents.isNotEmpty()) {
-                    item { Shelf("Recently used", state.recents, 300.dp, 169.dp, true, { focused = it }, onLaunch, onTogglePin) }
+                    item { Shelf("Recently used", state.recents, BannerW, BannerH, true, { focused = it }, onLaunch, onTogglePin) }
                 }
-                item { Shelf("All apps", state.all, 112.dp, 112.dp, false, { focused = it }, onLaunch, onTogglePin, onOpenSettings) }
+                item { Shelf("All apps", state.all, IconSize, IconSize, false, { focused = it }, onLaunch, onTogglePin, onOpenSettings) }
             }
         }
     }
@@ -99,26 +130,26 @@ private fun TopBar() {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(
             SimpleDateFormat("h:mm", Locale.getDefault()).format(now),
-            color = Color.White, fontSize = 40.sp, fontWeight = FontWeight.Light,
+            color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Light,
         )
         Text(
             SimpleDateFormat("EEEE, d MMMM", Locale.getDefault()).format(now),
-            color = Color.White.copy(alpha = 0.6f), fontSize = 18.sp,
-            modifier = Modifier.padding(start = 20.dp),
+            color = Color.White.copy(alpha = 0.6f), fontSize = 16.sp,
+            modifier = Modifier.padding(start = 16.dp),
         )
     }
 }
 
 @Composable
 private fun Hero(app: AppEntry?) {
-    Column(Modifier.padding(top = 28.dp, bottom = 12.dp).fillMaxWidth()) {
+    Column(Modifier.padding(top = 16.dp, bottom = 4.dp).fillMaxWidth()) {
         Text(
             app?.label ?: "Home",
-            color = Color.White, fontSize = 44.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+            color = Color.White, fontSize = 36.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
         )
         Text(
             if (app == null) "Select an app" else "OK to open  ·  hold OK to pin or unpin",
-            color = Color.White.copy(alpha = 0.55f), fontSize = 16.sp,
+            color = Color.White.copy(alpha = 0.55f), fontSize = 14.sp,
         )
     }
 }
@@ -136,10 +167,11 @@ private fun Shelf(
     onOpenSettings: (() -> Unit)? = null,
 ) {
     Column {
-        Text(title, color = Color.White.copy(alpha = 0.8f), fontSize = 20.sp, modifier = Modifier.padding(top = 8.dp))
+        Text(title, color = Color.White.copy(alpha = 0.8f), fontSize = 17.sp, modifier = Modifier.padding(top = 6.dp))
         LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(20.dp),
-            contentPadding = PaddingValues(vertical = 22.dp, horizontal = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(18.dp),
+            // Extra room so the focused (scaled-up) card is not clipped by the row.
+            contentPadding = PaddingValues(vertical = 16.dp, horizontal = 12.dp),
         ) {
             items(apps, key = { it.pkg }) { app ->
                 AppCard(app, w, h, useBanner, onFocus, { onLaunch(app) }, { onTogglePin(app) })
@@ -163,8 +195,8 @@ private fun AppCard(
     onLongClick: () -> Unit,
 ) {
     var isFocused by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(if (isFocused) 1.12f else 1f, tween(160), label = "scale")
-    val shape = RoundedCornerShape(16.dp)
+    val scale by animateFloatAsState(if (isFocused) 1.1f else 1f, tween(160), label = "scale")
+    val shape = RoundedCornerShape(14.dp)
 
     Box(
         Modifier
@@ -178,10 +210,14 @@ private fun AppCard(
     ) {
         if (useBanner && app.banner != null) {
             Image(app.banner, app.label, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-        } else {
-            Box(Modifier.fillMaxSize().background(app.accent.copy(alpha = 0.25f)), contentAlignment = Alignment.Center) {
-                Image(app.icon, app.label, Modifier.size(if (useBanner) 84.dp else 76.dp))
+        } else if (useBanner) {
+            // TV app without a banner: tinted card with the icon centred.
+            Box(Modifier.fillMaxSize().background(app.accent.copy(alpha = 0.3f)), contentAlignment = Alignment.Center) {
+                Image(app.icon, app.label, Modifier.size(72.dp))
             }
+        } else {
+            // Dock-style tile: the icon fills the whole card.
+            Image(app.icon, app.label, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         }
     }
 }
@@ -190,8 +226,8 @@ private fun AppCard(
 @Composable
 private fun SettingsCard(w: Dp, h: Dp, onClick: () -> Unit) {
     var isFocused by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(if (isFocused) 1.12f else 1f, tween(160), label = "scale")
-    val shape = RoundedCornerShape(16.dp)
+    val scale by animateFloatAsState(if (isFocused) 1.1f else 1f, tween(160), label = "scale")
+    val shape = RoundedCornerShape(14.dp)
     Box(
         Modifier
             .size(w, h)
@@ -204,6 +240,6 @@ private fun SettingsCard(w: Dp, h: Dp, onClick: () -> Unit) {
             .combinedClickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text("Settings", color = Color.White, fontSize = 16.sp)
+        Text("Settings", color = Color.White, fontSize = 14.sp)
     }
 }
